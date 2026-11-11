@@ -1,0 +1,54 @@
+# Name shown in the "Actions" tab on GitHub
+name: Deploy website to GitHub Pages
+
+# When to run: on every push to main, or manually from the Actions tab
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Permissions needed to publish to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy at a time
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  # Job 1: prepare the website files
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code from the repo
+        uses: actions/checkout@v4
+
+      - name: Build the site into a "dist" folder
+        run: |
+          mkdir dist
+          cp index.html style.css script.js dist/
+          # Replace the placeholder with the current date and time
+          sed -i "s/BUILD_TIME/$(date -u '+%Y-%m-%d %H:%M UTC')/" dist/index.html
+
+      - name: Set up GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the dist folder
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  # Job 2: publish the uploaded files
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
